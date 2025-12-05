@@ -40,17 +40,17 @@ def load_file_to_text(path: str, use_marker_ocr: bool = True) -> str:
     ext = os.path.splitext(path)[1].lower()
 
     if ext == ".pdf":
-        raw_text = read_pdf(path)
-        if use_marker_ocr:
-            joined = "\n".join([p or "" for p in raw_text]) if isinstance(raw_text, list) else (raw_text or "")
-            if len(joined) < config.MARKER_OCR_THRESHOLD:
-                ocr_result = extract_text_with_marker(path, force_ocr=True)
-                if isinstance(ocr_result, list):
-                    return ocr_result
-                if '\f' in ocr_result:
-                    return [p for p in ocr_result.split('\f')]
-                return [p.strip() for p in ocr_result.split('\n\n')]
-        return raw_text
+        # Forzar siempre OCR con Marker para PDFs; si falla, hacer fallback a PyPDF2
+        try:
+            ocr_result = extract_text_with_marker(path, force_ocr=True)
+            if isinstance(ocr_result, list):
+                return ocr_result
+            if '\f' in ocr_result:
+                return [p for p in ocr_result.split('\f')]
+            return [p.strip() for p in ocr_result.split('\n\n')]
+        except Exception as e:
+            logger.exception(f"Marker OCR failed for {path}, falling back to PyPDF2: {e}")
+            return read_pdf(path)
 
     elif ext in [".docx", ".doc"]:
         return read_docx(path)
@@ -75,7 +75,8 @@ def ingest_files(paths: List[str], collection_name: str = None, persist: bool = 
     seen_hashes = set()
     seen_embeddings = []
     for path in paths:
-        text = load_file_to_text(path, use_marker_ocr=config.FORCE_MARKER_OCR)
+        # Siempre usamos OCR para PDFs dentro de load_file_to_text; no dependemos de flags de configuración
+        text = load_file_to_text(path)
         # Validar texto
         if isinstance(text, list):
             combined_text = "\n".join([p or "" for p in text])
