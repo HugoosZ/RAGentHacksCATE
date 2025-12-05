@@ -2,7 +2,7 @@ from app.models.embeddings import EmbeddingClient
 from app.utils import config
 from app.utils.logger import logger
 from typing import List
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain_chroma import Chroma
 from math import sqrt
 
