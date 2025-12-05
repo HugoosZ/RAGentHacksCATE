@@ -46,7 +46,8 @@ def _format_chunk_header(meta: dict, fallback_index: int) -> str:
 def build_prompt(
     context_docs: List[Any],
     question: str,
-    mode: str = "qa"
+    mode: str = "qa",
+    files_focus: Optional[List[str]] = None,
 ) -> str:
     """
     Construye un prompt que:
@@ -66,6 +67,17 @@ def build_prompt(
         "- No incluyas comentario, markdown ni texto fuera del JSON.\n"
         "- Si la información no está en el contexto, pon 'No disponible en el contexto' en el campo adecuado.\n"
     )
+
+    # Si se especifican files, filtra/prioriza documentos que provienen de esos nombres
+    if files_focus:
+        focus_set = set(f.lower() for f in files_focus)
+        prioritized = []
+        others = []
+        for d in context_docs:
+            meta = d.metadata if hasattr(d, "metadata") else {}
+            src = (meta.get("source") or "").lower()
+            (prioritized if src in focus_set else others).append(d)
+        context_docs = prioritized + others
 
     # Prepara el bloque de contexto ajustado al presupuesto de tokens
     base_suffix = (
@@ -112,8 +124,10 @@ def build_prompt(
 
     context_block = "\n\n---\n\n".join(context_texts) if context_texts else ""
 
+    files_line = f"Archivos a enfocar: {files_focus}\n" if files_focus else ""
     prompt = (
         f"{SYSTEM_INSTRUCTIONS}\n\n"
+        f"{files_line}"
         f"Contexto recuperado (fragmentos con citas integradas):\n{context_block}\n\n"
         f"{formatting}\n"
         f"Pregunta del usuario:\n{question}"
@@ -125,13 +139,14 @@ def answer_with_rag(
     question: str,
     k: Optional[int] = None,
     collection_name: Optional[str] = None,
-    mode: str = "qa"
+    mode: str = "qa",
+    files: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Ejecuta RAG con el modo deseado. El LLM debe devolver SIEMPRE JSON válido.
     """
     docs = get_relevant_docs(question, k=k, collection_name=collection_name)
-    prompt = build_prompt(docs, question, mode=mode)
+    prompt = build_prompt(docs, question, mode=mode, files_focus=files)
 
     encoding = tiktoken.encoding_for_model(config.LLM_MODEL)
     tokens_used = len(encoding.encode(prompt))
@@ -141,5 +156,6 @@ def answer_with_rag(
         "answer": answer_json,
         "source_documents": docs,
         "tokens_used": tokens_used,
-        "mode": mode
+        "mode": mode,
+        "files": files or []
     }

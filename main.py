@@ -5,6 +5,7 @@ from app.data.ingestion import ingest_files, ingest_file
 from app.utils.logger import logger
 from app.utils import config
 from app.rag.retriever import get_vectorstore
+import chromadb
 import os
 
 app = typer.Typer()
@@ -114,32 +115,59 @@ def delete(targets: list[str] = typer.Argument(..., help="Paths to source files 
 
 
 @app.command("list")
-def list_files(a: bool = typer.Option(False, help="Show first ids per source")):
-    vs = get_vectorstore()
-    data = vs.get()
-    ids = data.get('ids', []) or []
-    metadatas = data.get('metadatas', []) or []
+def list_files(a: bool = typer.Option(False, "--all", "-a", help="Show first ids per source")):
+    # Cliente persistente (API nueva de Chroma)
+    try:
+        client = chromadb.PersistentClient(path=config.CHROMA_PERSIST_DIR)
+    except Exception as e:
+        print(f"Error creando cliente Chroma persistente: {e}")
+        raise typer.Exit(code=1)
 
-    counts = {}
-    samples = {}
-    for _id, md in zip(ids, metadatas):
-        if not md:
-            continue
-        src = md.get('source', 'desconocido')
-        counts[src] = counts.get(src, 0) + 1
-        samples.setdefault(src, []).append(_id)
+    try:
+        collections = client.list_collections() or []
+    except Exception as e:
+        print(f"Error al listar colecciones: {e}")
+        raise typer.Exit(code=1)
 
-    if not counts:
-        print('No hay documentos en la base de datos.')
+    if not collections:
+        print('No hay colecciones en la base de datos.')
         raise typer.Exit()
 
-    print('Fuentes en la base de datos:')
-    for src, cnt in sorted(counts.items(), key=lambda x: (-x[1], x[0])):
-        line = f" - {src}: {cnt} chunks"
-        if a:
-            s = samples.get(src, [])[:5]
-            line += f" | sample ids: {s}"
-        print(line)
+    print('Colecciones en la base de datos:')
+    for col in collections:
+        name = getattr(col, 'name', None) or (col.get('name') if isinstance(col, dict) else 'desconocido')
+        print(f"\n[ {name} ]")
+        # Obtener datos de la colección específica directamente desde el cliente
+        try:
+            col_client = client.get_collection(name=name)
+            data = col_client.get()
+        except Exception as e:
+            print(f"  Error al obtener datos de la colección {name}: {e}")
+            print(' (vacía o inaccesible)')
+            continue
+
+        ids = data.get('ids', []) or []
+        metadatas = data.get('metadatas', []) or []
+
+        counts = {}
+        samples = {}
+        for _id, md in zip(ids, metadatas):
+            if not md:
+                continue
+            src = md.get('source', 'desconocido')
+            counts[src] = counts.get(src, 0) + 1
+            samples.setdefault(src, []).append(_id)
+
+        if not counts:
+            print(' (vacía)')
+            continue
+
+        for src, cnt in sorted(counts.items(), key=lambda x: (-x[1], x[0])):
+            line = f" - {src}: {cnt} chunks"
+            if a:
+                s = samples.get(src, [])[:5]
+                line += f" | sample ids: {s}"
+            print(line)
 
 if __name__ == "__main__":
     app()

@@ -1,19 +1,23 @@
 from app.models.embeddings import EmbeddingClient
 from app.utils import config
 from app.utils.logger import logger
-from typing import List
+from typing import List, Optional
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
 from math import sqrt
 
-def get_vectorstore():
+def get_vectorstore(collection_name: Optional[str] = None):
     emb = EmbeddingClient()
-    vectordb = Chroma(persist_directory=config.CHROMA_PERSIST_DIR, embedding_function=emb._client)
+    vectordb = Chroma(
+        persist_directory=config.CHROMA_PERSIST_DIR,
+        embedding_function=emb._client,
+        collection_name=collection_name or config.DEFAULT_COLLECTION_NAME,
+    )
     return vectordb
 
-def get_relevant_docs(query: str, k: int = None) -> List[Document]:
+def get_relevant_docs(query: str, k: int = None, collection_name: Optional[str] = None) -> List[Document]:
     k = k or config.DEFAULT_TOP_K
-    vectordb = get_vectorstore()
+    vectordb = get_vectorstore(collection_name=collection_name)
     top_n = config.RERANK_TOP_K if config.RERANK_ENABLED else k
     retriever = vectordb.as_retriever(search_kwargs={"k": top_n})
 

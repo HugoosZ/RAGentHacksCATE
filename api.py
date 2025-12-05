@@ -24,6 +24,7 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     prompt: str
     ramo: str
+    files: Optional[List[str]] = None  # lista de nombres de archivos a enfocar
     use_rag: Optional[bool] = True
 
 # Modelo para la respuesta
@@ -74,15 +75,19 @@ async def query_chatbot(request: QueryRequest):
     """
     try:
         logger.info(f"Consulta recibida - Ramo: {request.ramo}, Prompt: {request.prompt[:50]}...")
-        
+
         # Obtener el chatbot para la colección específica
         chatbot = get_chatbot(request.ramo)
-        
+
         # Procesar la consulta
-        result = chatbot.ask(request.prompt, use_rag_override=request.use_rag)
-        
+        result = chatbot.ask(
+            request.prompt,
+            use_rag_override=request.use_rag,
+            files=request.files,
+        )
+
         # Extraer fuentes si existen
-        sources = []
+        sources: List[str] = []
         if result.get("source_documents"):
             sources_set = set()
             for doc in result["source_documents"]:
@@ -90,21 +95,21 @@ async def query_chatbot(request: QueryRequest):
                     source = doc.metadata.get("source", "desconocido")
                     sources_set.add(source)
             sources = list(sources_set)
-        
+
         response = QueryResponse(
-            answer=result["answer"],
+            answer=result.get("answer", ""),
             sources=sources if sources else None,
-            ramo=request.ramo
+            ramo=request.ramo,
         )
-        
+
         logger.info(f"Respuesta enviada - Ramo: {request.ramo}")
         return response
-        
+
     except Exception as e:
         logger.error(f"Error procesando consulta: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error al procesar la consulta: {str(e)}"
+            detail=f"Error al procesar la consulta: {str(e)}",
         )
 
 if __name__ == "__main__":
