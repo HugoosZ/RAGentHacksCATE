@@ -18,3 +18,6 @@ tests/
 #Ignorar datos locales
 chroma_db/
 files/
+
+#MacOS
+.DS_Store
