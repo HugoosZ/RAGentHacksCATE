@@ -11,12 +11,45 @@
 [![marker-pdf](https://img.shields.io/badge/marker--pdf-FFB300?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](https://pypi.org/project/marker-pdf/)
 [![dotenv](https://img.shields.io/badge/dotenv-10AA50?style=for-the-badge&logo=dotenv&logoColor=white)](https://pypi.org/project/python-dotenv/)
 
-RAGent es un asistente conversacional basado en RAG (Retrieval-Augmented Generation) que responde preguntas utilizando información extraída de documentos (PDF, DOCX, TXT) y modelos de lenguaje (LLM). El sistema ingiere archivos, los procesa en chunks, genera embeddings, almacena los vectores en una base ChromaDB y utiliza un modelo LLM para responder preguntas apoyándose en el contexto recuperado.
+RAGent es un asistente conversacional basado en RAG (Retrieval-Augmented Generation) que responde preguntas utilizando información extraída de documentos (PDF, DOCX, TXT) y modelos de lenguaje (LLM). El sistema ingesta archivos, los procesa en chunks, genera embeddings, almacena los vectores en una base ChromaDB y utiliza un modelo LLM para responder preguntas apoyándose en el contexto recuperado.
 
 Además, expone:
 
 - API HTTP con FastAPI (`api.py`) para consultas desde un frontend u otros clientes.
 - CLI con Typer (`main.py`) para ingestar, chatear por consola, listar y eliminar documentos.
+
+## Tecnologías Utilizadas
+
+
+### Lenguaje & Runtime
+- **Python** 3.8+ - Lenguaje de programación principal
+
+### Core Framework & LLM
+- **[LangChain](https://www.langchain.com/)** (>=0.1.0) - Framework principal para construcción de aplicaciones con LLMs
+- **[OpenAI API](https://openai.com/)** (>=1.0.0) - API de OpenAI para modelos GPT y embeddings
+- **[LangChain OpenAI](https://python.langchain.com/docs/integrations/platforms/openai)** (>=0.3.33) - Integración con modelos OpenAI
+- **[LangChain Community](https://python.langchain.com/docs/integrations/platforms/)** (>=0.0.100) - Integraciones adicionales de LangChain
+
+### Vector Database & RAG
+- **[ChromaDB](https://www.trychroma.com/)** (>=0.3.24) - Base de datos vectorial para almacenamiento de embeddings
+- **[LangChain Chroma](https://python.langchain.com/docs/integrations/vectorstores/chroma)** (>=0.2.6) - Integración de ChromaDB con LangChain
+
+### Procesamiento de Documentos
+- **[PyPDF2](https://pypi.org/project/PyPDF2/)** (>=3.0.0) - Extracción de texto de archivos PDF
+- **[python-docx](https://pypi.org/project/python-docx/)** (>=0.8.11) - Procesamiento de documentos Word (.docx)
+- **[marker-pdf](https://pypi.org/project/marker-pdf/)** (>=1.0.0) - OCR avanzado y parsing de PDFs con contenido complejo
+- **[tiktoken](https://github.com/openai/tiktoken)** (>=0.11.0) - Tokenizador de OpenAI para gestión de límites de tokens
+
+### API & Web Framework
+- **[FastAPI](https://fastapi.tiangolo.com/)** (>=0.104.0) - Construcción de API
+- **[Uvicorn](https://www.uvicorn.org/)** (>=0.24.0) - Servidor ASGI para FastAPI
+- **[Pydantic](https://docs.pydantic.dev/)** (>=2.0.0) - Validación de datos y serialización
+
+
+
+### Arquitectura de Agentes
+- **ReAct Agent** - Implementación del patrón Reasoning + Acting para consultas complejas
+- **RAG (Retrieval-Augmented Generation)** - Arquitectura para respuestas basadas en documentos recuperados
 
 
 ## Flujo de datos
@@ -27,7 +60,7 @@ Además, expone:
 
 2. Los archivos se leen y procesan (PDF, DOCX, TXT).
 
-3. El texto se divide en chunks ([chunking.py](app/data/chunking.py)). Nota: por diseño actual, se genera un único chunk grande por archivo, preservando el contexto completo del documento.
+3. El texto se divide en chunks ([chunking.py](app/data/chunking.py)). Nota: Por el poco tiempo, se genera un único chunk grande por archivo, preservando el contexto completo del documento.
 
 4. Se generan embeddings para cada chunk ([embeddings.py](app/models/embeddings.py)).
 
@@ -39,7 +72,7 @@ Además, expone:
 
 2. El sistema recupera los chunks más relevantes desde ChromaDB usando embeddings ([retriever.py](app/rag/retriever.py)).
 
-3. Opcionalmente, un agente ReAct (`app/rag/ReAct.py`) puede orquestar el proceso: invocar la herramienta `RAG_Search` para recuperar evidencia, razonar con el LLM y enriquecer la respuesta.
+3. Un agente ReAct (`app/rag/ReAct.py`) orquesta el proceso, llama a la herramienta `RAG_Search` que otorga contexto adicional al promt.
 
 4. Se construye un prompt con el contexto recuperado y la pregunta del usuario ([qa.py](app/rag/qa.py)).
 
@@ -47,57 +80,8 @@ Además, expone:
 
 6. Se muestra la respuesta y las fuentes relevantes al usuario.
 
-### Gestión de la conversación
 
-1. Se mantiene un historial de turnos (usuario/asistente) ([conversation.py](app/controllers/conversation.py), [chatbot.py](app/chatbot.py)).
 
-2. Se puede alternar entre modo RAG y modo LLM puro.
-
-## Arquitectura por módulos (mapa del código)
-
-- Interfaz
-    - `api.py`: FastAPI con CORS. Endpoints: `/` (bienvenida), `/health`, `/api/query` (consulta). Mantiene un caché de chatbots por colección ("ramo").
-    - `main.py`: CLI (Typer) con comandos `ingest`, `run`, `chat`, `list`, `delete`.
-
-- Orquestación de conversación
-    - `app/chatbot.py`: envoltorio ligero que delega en `ConversationManager`.
-    - `app/controllers/conversation.py`: historial simple y decisión entre RAG o LLM puro.
-
-- RAG
-    - `app/rag/retriever.py`: abre Chroma persistente y recupera documentos relevantes; opcionalmente aplica re-ranking por similitud coseno.
-    - `app/rag/qa.py`: arma un prompt con instrucciones de sistema, contexto (truncado por tokens con `tiktoken`) y la pregunta; invoca el LLM y retorna respuesta + documentos fuente.
-    - `app/rag/ReAct.py`: agente ReAct (LangChain) con herramienta `RAG_Search`, con presupuesto de llamadas/tokens por consulta.
-
-- Ingesta y chunking
-    - `app/data/ingestion.py`: lectura de PDF (PyPDF2), DOCX (python-docx), TXT/MD; fallback opcional a Marker OCR si el PDF parece pobre en texto. Deduplicación exacta y por similitud de embeddings. Inserta `Document`s en Chroma.
-    - `app/data/chunking.py`: normalización y chunking (1 chunk por archivo) con metadatos de rangos.
-    - `app/data/marker.py`: integración con Marker (OCR y parsing robusto de PDF).
-
-- Modelos
-    - `app/models/embeddings.py`: `OpenAIEmbeddings` configurable.
-    - `app/models/llm.py`: `ChatOpenAI` envuelto en `Agent`.
-
-- Utilidades
-    - `app/utils/config.py`: configuración centralizada vía variables de entorno.
-    - `app/utils/logger.py`: logger a stdout.
-
-## Diagrama de flujo de datos
-
-```mermaid
-flowchart TD
-    A[Usuario CLI] -->|Ingesta| B[Lectura de archivos: PDF, DOCX, TXT]
-    B --> C[Chunking de texto]
-    C --> D[Generación de embeddings]
-    D --> E[Almacenamiento en ChromaDB]
-
-    A2[Usuario Chat] -->|Consulta| F[Recuperación de chunks relevantes]
-    F --> G[Construcción de prompt]
-    G --> H[LLM: OpenAI]
-    H --> I[Respuesta y fuentes]
-
-    E --> F
-
-```
 
 ## Componentes principales
 
@@ -108,15 +92,11 @@ flowchart TD
 - [app/rag/qa.py](app/rag/qa.py): Construcción de prompts y respuestas.
 - [app/rag/ReAct.py](app/rag/ReAct.py): Agente ReAct que orquesta razonamiento y llamadas a la herramienta RAG.
 - [app/models/llm.py](app/models/llm.py): Interfaz con el modelo LLM.
-- [app/controllers/conversation.py](app/controllers/conversation.py): Gestión del historial conversacional.
-- [app/chatbot.py](app/chatbot.py): Interfaz de chat.
 
 ## API HTTP
 
 Servidor FastAPI desde `api.py`.
 
-- GET `/` — Bienvenida y metadatos.
-- GET `/health` — Health check simple: `{ "status": "healthy" }`.
 - POST `/api/query` — Consulta al chatbot.
     - Request JSON:
         - `prompt` (str): pregunta del usuario.
@@ -206,11 +186,5 @@ RAGent se configura principalmente mediante variables de entorno (usando `.env`)
 
 ## Notas sobre OCR
 
-Durante la ingesta de PDFs se invoca Marker OCR de forma incondicional. Si Marker falla, se registra el error y se intenta extraer texto con PyPDF2 como respaldo. Esto mejora la robustez para PDFs escaneados o con extracción nativa pobre.
+Durante la ingesta de PDFs se invoca Marker OCR de forma incondicional. Si Marker falla, se registra el error y se intenta extraer texto con PyPDF2 como respaldo. Esto mejora la robustez para PDFs escaneados o con poca extracción nativa .
 
-## Detalles técnicos útiles
-
-- Deduplicación: exacta (hash) y approximate por similitud coseno entre embeddings, controlada por `DEDUP_SIM_THRESHOLD`.
-- Re-ranking: si `RERANK_ENABLED=true`, se obtienen `RERANK_TOP_K` candidatos y se ordenan por similitud coseno; luego se recortan a `k`.
-- Control de tokens: `qa.py` usa `tiktoken` para truncar el bloque de contexto dentro de `MAX_MODEL_TOKENS - RESERVED_RESPONSE_TOKENS`.
-- Caching de chatbots por colección (API): `api.py` mantiene instancias por "ramo" para evitar re-creación costosa.
