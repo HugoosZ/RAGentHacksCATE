@@ -1,7 +1,7 @@
 import os
 import typer
 from app.chatbot import Chatbot
-from app.data.ingestion import ingest_files
+from app.data.ingestion import ingest_files, ingest_file
 from app.utils.logger import logger
 from app.utils import config
 from app.rag.retriever import get_vectorstore
@@ -10,16 +10,30 @@ import os
 app = typer.Typer()
 
 @app.command()
-def ingest(paths: list[str], collection: str = "study_collection", dry_run: bool = False):
+def ingest(
+    ruta_de_archivo: str = typer.Argument(None, help="Ruta de archivo a ingestar (opcional si se usa --paths)"),
+    collection: str = typer.Argument("study_collection", help="Nombre de la colección"),
+    paths: list[str] = typer.Option(None, help="Lista de rutas a ingestar (alternativa a ruta_de_archivo)"),
+    dry_run: bool = False,
+):
+        """Ingesta documentos en la colección indicada.
+        Modo 1: python main.py ingest ruta_de_archivo collection
+        Modo 2: python main.py ingest --paths file1.pdf file2.pdf collection
+        """
+        if paths:
+            docs = ingest_files(paths, collection_name=collection, dry_run=dry_run)
+        elif ruta_de_archivo:
+            docs = ingest_file(ruta_de_archivo, collection_name=collection, dry_run=dry_run)
+        else:
+            print("Debes proporcionar una ruta_de_archivo o --paths.")
+            raise typer.Exit(code=1)
 
-        docs = ingest_files(paths, collection_name=collection, dry_run=dry_run)
         if dry_run:
             print(f"Dry-run: {len(docs)} chunks would be created/added from provided paths")
 
 @app.command()
-def chat(use_rag: bool = True):
-    
-    bot = Chatbot(use_rag=use_rag)
+def chat(use_rag: bool = True, collection: str = "study_collection"):
+    bot = Chatbot(use_rag=use_rag, collection_name=collection)
     print("Modo chat. Escribe 'exit' para salir.")
     while True:
         q = input("Tú> ").strip()

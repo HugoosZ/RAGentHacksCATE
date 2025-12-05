@@ -18,8 +18,8 @@ LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4.1-nano")
 # Número por defecto de documentos a devolver en búsquedas (top-k). Variable de entorno: DEFAULT_TOP_K
 DEFAULT_TOP_K: int = int(os.getenv("DEFAULT_TOP_K", "15"))
 
-# Tamaño aproximado en caracteres para dividir el texto en chunks (chunks grandes ~1000 chars)
-MAX_CHUNK_SIZE: int = int(os.getenv("MAX_CHUNK_SIZE", "1000"))  # chars approximation
+# Tamaño aproximado en caracteres para dividir el texto en chunks (aumentado 20x)
+MAX_CHUNK_SIZE: int = int(os.getenv("MAX_CHUNK_SIZE", "400000"))  # chars approximation
 
 # Número de candidatos a recuperar antes de aplicar reranking (si está habilitado).
 RERANK_TOP_K: int = int(os.getenv("RERANK_TOP_K", "20"))
@@ -53,12 +53,12 @@ DEDUP_SIM_THRESHOLD: float = float(os.getenv("DEDUP_SIM_THRESHOLD", "0.9"))
 
 # Tamaño de chunk por defecto y solapamiento (en caracteres) para chunking.
 # Tamaño por defecto de chunk y solapamiento en caracteres.
-# Variables de entorno: CHUNK_DEFAULT_SIZE, CHUNK_DEFAULT_OVERLAP
+# Variables de entorno: CHUNK_DEFAULT_SIZE, CHUNK_DEFAULT_OVERLAP (aumentados 20x)
 CHUNK_DEFAULT_SIZE: int = int(os.getenv("CHUNK_DEFAULT_SIZE", str(MAX_CHUNK_SIZE)))
-CHUNK_DEFAULT_OVERLAP: int = int(os.getenv("CHUNK_DEFAULT_OVERLAP", "200"))
+CHUNK_DEFAULT_OVERLAP: int = int(os.getenv("CHUNK_DEFAULT_OVERLAP", "100000"))
 
 # Longitud mínima en caracteres para aceptar un chunk extraído.
-MIN_CHUNK_CHARS: int = int(os.getenv("MIN_CHUNK_CHARS", "50"))
+MIN_CHUNK_CHARS: int = int(os.getenv("MIN_CHUNK_CHARS", "500"))
 
 
 # Controla la aleatoriedad (0.0 más determinista, 1.0 más variado).

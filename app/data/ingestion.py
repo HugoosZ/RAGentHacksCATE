@@ -63,8 +63,12 @@ def ingest_files(paths: List[str], collection_name: str = None, persist: bool = 
     def clean_text(text):
         return text.encode('utf-8', 'ignore').decode('utf-8')
     emb = EmbeddingClient()
-    vectordb = Chroma(persist_directory=config.CHROMA_PERSIST_DIR, embedding_function=emb._client)
     collection_name = collection_name or config.DEFAULT_COLLECTION_NAME
+    vectordb = Chroma(
+        persist_directory=config.CHROMA_PERSIST_DIR,
+        embedding_function=emb._client,
+        collection_name=collection_name,
+    )
     persist = config.DEFAULT_PERSIST if persist is None else persist
     dedup_threshold = config.DEDUP_SIM_THRESHOLD if dedup_threshold is None else dedup_threshold
     documents = []
@@ -72,6 +76,7 @@ def ingest_files(paths: List[str], collection_name: str = None, persist: bool = 
     seen_embeddings = []
     for path in paths:
         text = load_file_to_text(path, use_marker_ocr=config.FORCE_MARKER_OCR)
+        # Validar texto
         if isinstance(text, list):
             combined_text = "\n".join([p or "" for p in text])
             if not combined_text.strip():
@@ -82,8 +87,9 @@ def ingest_files(paths: List[str], collection_name: str = None, persist: bool = 
                 logger.info(f"No text extracted from {path}, skipping.")
                 continue
 
-    chunks = chunk_text(text, chunk_size_chars=config.CHUNK_DEFAULT_SIZE, chunk_overlap=config.CHUNK_DEFAULT_OVERLAP)
-    for i, ch in enumerate(chunks):
+        # Un único chunk por archivo
+        chunks = chunk_text(text, chunk_size_chars=config.CHUNK_DEFAULT_SIZE, chunk_overlap=config.CHUNK_DEFAULT_OVERLAP)
+        for i, ch in enumerate(chunks):
             ch_dict = ch if isinstance(ch, dict) else {"text": ch}
             ch_text = ch_dict.get("text") or ""
             ch_clean = clean_text(ch_text)
@@ -134,3 +140,14 @@ def ingest_files(paths: List[str], collection_name: str = None, persist: bool = 
     else:
         logger.info("No documents to add after processing (dedup/filter may have removed all chunks)")
     return documents
+
+
+def ingest_file(path: str, collection_name: str, persist: bool = None, dry_run: bool = False, dedup_threshold: float = None):
+        """
+        Ingesta un único archivo en la colección indicada.
+        Parámetros:
+            - path: ruta_de_archivo
+            - collection_name: nombre de la colección destino
+            - persist, dry_run, dedup_threshold: igual que ingest_files
+        """
+        return ingest_files([path], collection_name=collection_name, persist=persist, dry_run=dry_run, dedup_threshold=dedup_threshold)
