@@ -18,6 +18,13 @@ Además, expone:
 - API HTTP con FastAPI (`api.py`) para consultas desde un frontend u otros clientes.
 - CLI con Typer (`main.py`) para ingestar, chatear por consola, listar y eliminar documentos.
 
+
+## Motivacion
+
+Otorgarle al estudiante la capacidad de poder estudiar en la misma plataforma donde se encuentra el material de semestres anteriores y no requerir de herramientas ajenas a la universidad. Esto permite generar un ecosistema de aprendizaje unificado, donde el alumno no pierde tiempo saltando entre aplicaciones, evitando la dependencia de plataformas externas.
+Además, centralizar los recursos académicos abre la puerta a experiencias de estudio más inteligentes, como búsqueda semántica, generación de resúmenes, creación automática de flashcards y mapas mentales basados en el material oficial. Esto beneficia tanto a quienes buscan repasar conceptos clave como a quienes necesitan apoyo para organizar su propio proceso de estudio.
+En conjunto, esto se traduce en una plataforma más eficiente, accesible y personalizada, alineada con la necesidad actual de herramientas que potencien el rendimiento académico sin fricciones ni barreras tecnológicas.
+
 ## Tecnologías Utilizadas
 
 
